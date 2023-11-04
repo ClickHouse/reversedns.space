@@ -42,28 +42,28 @@
         });
 
         L.tileLayer('tiles/{z}-{x}-{y}.png', {
-            width: 65536,
-            height: 65536,
+            width: 32768,
+            height: 32768,
             tileSize: 1024,
             minZoom: -1,
             maxZoom: 10,
             minNativeZoom: 0,
-            maxNativeZoom: 6,
+            maxNativeZoom: 5,
             attribution: '&copy; Alexey Milovidov, ClickHouse, Inc.'
         }).addTo(map);
 
         map.attributionControl.setPrefix('<a href="https://github.com/ClickHouse/reversedns.space/">About</a>');
 
         function latLngToPixel(latlng) {
-            return { x: ((latlng.lng / 1024) * 65536)|0, y: ((-latlng.lat / 1024) * 65536)|0 };
+            return { x: ((latlng.lng / 1024) * 32768)|0, y: ((-latlng.lat / 1024) * 32768)|0 };
         }
 
         function pixelToLatLng(pixel) {
-            return { lat: (-pixel.y - 0.5) / 65536 * 1024, lng: (pixel.x + 0.5) / 65536 * 1024 };
+            return { lat: (-pixel.y - 0.5) / 32768 * 1024, lng: (pixel.x + 0.5) / 32768 * 1024 };
         }
 
         let popup = L.popup({maxWidth: 500});
-        let current_requested_ip = '';
+        let current_requested_addr = '';
 
         function updateHistory() {
             const state = {
@@ -107,38 +107,37 @@
         function showPopup(x, y) {
             const xn = BigInt(x);
             const yn = BigInt(y);
-            let ip_int = 0n;
+            let addr_int = 0n;
             for (let bit = 0n; bit < 16n; ++bit) {
-                ip_int |= ((xn >> bit) & 1n) << (bit * 2n);
-                ip_int |= ((yn >> bit) & 1n) << (1n + bit * 2n);
+                addr_int |= ((xn >> bit) & 1n) << (bit * 2n);
+                addr_int |= ((yn >> bit) & 1n) << (1n + bit * 2n);
             }
 
-            const ip_str = `${(ip_int >> 24n) & 0xFFn}.${(ip_int >> 16n) & 0xFFn}.${(ip_int >> 8n) & 0xFFn}.${(ip_int) & 0xFFn}`;
-            current_requested_ip = ip_str;
+            current_requested_addr = addr_int;
 
             const response = fetch(
-                `https://driel7jwie.eu-west-1.aws.clickhouse-staging.com/?user=website`,
+                `http://localhost:8123/?user=website`,
                 {
                     method: 'POST',
-                    body: `SELECT domain FROM dns_parsed WHERE ip = '${ip_str}' FORMAT JSON`
+                    body: `SELECT encodeXMLComponent(demangle(addressToSymbol(${addr_int}::UInt64))) AS name FORMAT JSON`
                 }).then(response => response.json().then(o => {
 
-                    let host = o.rows ? o.data[0].domain : 'no response';
+                    let name = o.rows ? o.data[0].name : 'nothing';
 
-                    if (ip_str == current_requested_ip) {
-                        popup.setContent(`<b>${ip_str}</b><br/>${host}`);
+                    if (addr_int == current_requested_addr) {
+                        popup.setContent(`<b>${addr_int}</b><br/>${name}`);
                     }
                 }));
 
             popup
                 .setLatLng(pixelToLatLng({x: x, y: y}))
-                .setContent(`${ip_str}`)
+                .setContent(`${addr_int}`)
                 .openOn(map);
         }
 
         map.on('click', e => {
             const {x, y} = latLngToPixel(e.latlng);
-            if (x < 0 || x >= 65536 || y < 0 || y >= 65536) return;
+            if (x < 0 || x >= 32768 || y < 0 || y >= 32768) return;
 
             showPopup(x, y);
             updateHistory();
