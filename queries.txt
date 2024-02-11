@@ -50,7 +50,7 @@ WITH JSONExtract(json,
     Comment Array(String))') AS t
 
 SELECT time, t.Status, t.TC, t.RD, t.RA, t.AD, t.CD,
-toIPv4(reinterpretAsUInt32(reverse(reinterpretAsFixedString(IPv4StringToNum(extract(tupleElement(t.Question[1], 'name'), '^(\d+\.\d+\.\d+\.\d+)\.')))))) AS ip,
+toIPv4(byteSwap(IPv4StringToNum(extract(tupleElement(t.Question[1], 'name'), '^(\d+\.\d+\.\d+\.\d+)\.')))) AS ip,
 replaceRegexpOne(tupleElement(t.Answer[1], 'data'), '\.$', '') AS domain
 FROM dns
 WHERE notEmpty(t.Answer)
